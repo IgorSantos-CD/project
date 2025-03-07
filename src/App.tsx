@@ -19,7 +19,7 @@ function AppContent() {
     return <AuthForm />;
   }
 
-  const handleTransactionSubmit = async (data: Transaction) => {
+  const handleTransactionSubmit = async (data: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       await transactionService.createTransaction(data);
       // Redirecionar para o dashboard após criar a transação

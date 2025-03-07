@@ -5,13 +5,27 @@ import {
   DollarSign,
   FileText,
   RefreshCw,
-  Tag
+  Tag,
+  Wallet
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { transactionService, Category, Transaction } from '../services/transactionService';
+import AccountSelector from './AccountSelector';
+import { toast } from 'react-hot-toast';
 
 interface TransactionFormProps {
-  onSubmit: (data: Transaction) => void;
+  onSubmit: (data: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => void;
+}
+
+interface FormData {
+  description: string;
+  amount: string;
+  type: 'income' | 'expense';
+  category: string;
+  date: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+  end_date: string;
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
@@ -19,7 +33,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState('');
   const [isNewCategory, setIsNewCategory] = useState(false);
-  const [formData, setFormData] = useState({
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [formData, setFormData] = useState<FormData>({
     description: '',
     amount: '',
     type: 'expense',
@@ -50,31 +65,36 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!selectedAccountId) {
+        toast.error('Selecione uma carteira');
+        return;
+      }
+
       console.log('Submetendo formulário:', { formData, isRecurring });
 
-      const transaction = {
+      const transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'> = {
         description: formData.description,
         amount: Number(formData.amount),
-        type: formData.type as 'income' | 'expense',
+        type: formData.type,
         category: isNewCategory ? newCategory : formData.category,
-        date: formData.date
+        date: formData.date,
+        account_id: selectedAccountId
       };
 
       if (isRecurring) {
-        // Se for recorrente, passa os parâmetros de recorrência
         await transactionService.createTransaction(transaction, {
-          frequency: formData.frequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
-          interval: Number(formData.interval),
+          frequency: formData.frequency,
+          interval: formData.interval,
           end_date: formData.end_date || undefined
         });
       } else {
-        // Se não for recorrente, cria uma transação normal
         await transactionService.createTransaction(transaction);
       }
 
-      onSubmit(transaction as Transaction);
+      onSubmit(transaction);
     } catch (error) {
       console.error('Erro ao criar transação:', error);
+      toast.error('Erro ao criar transação');
     }
   };
 
@@ -102,6 +122,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
       <h2 className="text-xl font-semibold mb-6">Nova Transação</h2>
       
       <div className="space-y-4">
+        {/* Carteira */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Carteira
+            </div>
+          </label>
+          <AccountSelector
+            onSelect={setSelectedAccountId}
+            selectedAccountId={selectedAccountId}
+          />
+        </div>
+
         {/* Descrição */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

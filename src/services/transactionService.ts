@@ -1,14 +1,18 @@
 import { supabase } from '../lib/supabase';
 import { addMonths, addWeeks, addDays, addYears, parseISO, isBefore, format } from 'date-fns';
+import { accountService } from './accountService';
 
 export interface Transaction {
-  id?: string;
+  id: string;
   description: string;
   amount: number;
   type: 'income' | 'expense';
-  category: string;
   date: string;
+  category: string;
+  account_id: string;
   recurring_transaction_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface RecurringTransaction {
@@ -94,7 +98,10 @@ export const transactionService = {
     }
   },
 
-  async createTransaction(transaction: Transaction, recurring?: { frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'; interval: number; end_date?: string }) {
+  async createTransaction(
+    transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>,
+    recurring?: { frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'; interval: number; end_date?: string }
+  ) {
     try {
       console.log('Iniciando criação de transação:', { transaction, recurring });
 
@@ -106,7 +113,7 @@ export const transactionService = {
       // Get the user's default account (or first account)
       const { data: accounts, error: accountsError } = await supabase
         .from('accounts')
-        .select('id')
+        .select('*')
         .eq('user_id', user.id)
         .limit(1);
 
@@ -115,7 +122,8 @@ export const transactionService = {
         throw new Error('User must have at least one account to create transactions');
       }
 
-      const accountId = accounts[0].id;
+      const account = accounts[0];
+      const accountId = account.id;
 
       // If category is not a UUID, treat it as a category name and find/create it
       let categoryId = transaction.category;
@@ -153,6 +161,14 @@ export const transactionService = {
         .single();
 
       if (error) throw error;
+
+      // Atualiza o saldo da conta
+      const newBalance = transaction.type === 'income' 
+        ? account.balance + transaction.amount 
+        : account.balance - transaction.amount;
+      
+      await accountService.updateAccountBalance(accountId, newBalance);
+
       return data;
     } catch (error) {
       console.error('Erro ao criar transação:', error);
@@ -209,12 +225,40 @@ export const transactionService = {
 
   async deleteTransaction(id: string) {
     try {
-      const { error } = await supabase
+      // Buscar a transação antes de deletar para obter o valor
+      const { data: transaction, error: fetchError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!transaction) throw new Error('Transaction not found');
+
+      // Buscar a conta para atualizar o saldo
+      const { data: account, error: accountError } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('id', transaction.account_id)
+        .single();
+
+      if (accountError) throw accountError;
+      if (!account) throw new Error('Account not found');
+
+      // Deletar a transação
+      const { error: deleteError } = await supabase
         .from('transactions')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // Atualizar o saldo da conta (reverter o efeito da transação)
+      const newBalance = transaction.type === 'income'
+        ? account.balance - transaction.amount
+        : account.balance + transaction.amount;
+
+      await accountService.updateAccountBalance(transaction.account_id, newBalance);
     } catch (error) {
       console.error('Erro ao excluir transação:', error);
       throw error;
@@ -223,12 +267,50 @@ export const transactionService = {
 
   async deleteMultipleTransactions(ids: string[]) {
     try {
-      const { error } = await supabase
+      // Buscar todas as transações antes de deletar
+      const { data: transactions, error: fetchError } = await supabase
+        .from('transactions')
+        .select('*')
+        .in('id', ids);
+
+      if (fetchError) throw fetchError;
+      if (!transactions) throw new Error('No transactions found');
+
+      // Agrupar transações por conta
+      const transactionsByAccount = transactions.reduce((acc, transaction) => {
+        if (!acc[transaction.account_id]) {
+          acc[transaction.account_id] = [];
+        }
+        acc[transaction.account_id].push(transaction);
+        return acc;
+      }, {} as Record<string, Transaction[]>);
+
+      // Deletar as transações
+      const { error: deleteError } = await supabase
         .from('transactions')
         .delete()
         .in('id', ids);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // Atualizar o saldo de cada conta
+      for (const [accountId, accountTransactions] of Object.entries(transactionsByAccount)) {
+        const { data: account, error: accountError } = await supabase
+          .from('accounts')
+          .select('*')
+          .eq('id', accountId)
+          .single();
+
+        if (accountError) throw accountError;
+        if (!account) throw new Error('Account not found');
+
+        const balanceChange = (accountTransactions as Transaction[]).reduce((total: number, transaction: Transaction) => {
+          return total + (transaction.type === 'income' ? -transaction.amount : transaction.amount);
+        }, 0);
+
+        const newBalance = account.balance + balanceChange;
+        await accountService.updateAccountBalance(accountId, newBalance);
+      }
     } catch (error) {
       console.error('Erro ao excluir transações:', error);
       throw error;
@@ -365,7 +447,10 @@ export const transactionService = {
     }
   },
 
-  async createRecurringTransaction(transaction: Transaction, recurring: RecurringTransaction) {
+  async createRecurringTransaction(
+    transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>,
+    recurring: RecurringTransaction
+  ) {
     try {
       console.log('Iniciando criação de transação recorrente:', { transaction, recurring });
 
