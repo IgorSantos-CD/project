@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { transactionService } from '../services/transactionService';
+import { accountService } from '../services/accountService';
 import AccountSelector from './AccountSelector';
 import { toast } from 'react-hot-toast';
 
@@ -9,6 +10,7 @@ interface AccountOverviewData {
   totalExpense: number;
   balance: number;
   totalTransactions: number;
+  initialBalance: number;
 }
 
 const AccountOverview: React.FC = () => {
@@ -17,15 +19,27 @@ const AccountOverview: React.FC = () => {
     totalIncome: 0,
     totalExpense: 0,
     balance: 0,
-    totalTransactions: 0
+    totalTransactions: 0,
+    initialBalance: 0
   });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (selectedAccountId) {
+      loadAccountData();
       loadOverviewData();
     }
   }, [selectedAccountId]);
+
+  const loadAccountData = async () => {
+    try {
+      const account = await accountService.getAccount(selectedAccountId);
+      setOverviewData(prev => ({ ...prev, initialBalance: account.balance }));
+    } catch (error) {
+      console.error('Erro ao carregar dados da conta:', error);
+      toast.error('Erro ao carregar dados da conta');
+    }
+  };
 
   const loadOverviewData = async () => {
     try {
@@ -46,12 +60,13 @@ const AccountOverview: React.FC = () => {
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      setOverviewData({
+      setOverviewData(prev => ({
+        ...prev,
         totalIncome,
         totalExpense,
-        balance: totalIncome - totalExpense,
+        balance: prev.initialBalance + totalIncome - totalExpense,
         totalTransactions: accountTransactions.length
-      });
+      }));
     } catch (error) {
       console.error('Erro ao carregar visão geral:', error);
       toast.error('Erro ao carregar visão geral da conta');
@@ -120,6 +135,9 @@ const AccountOverview: React.FC = () => {
             overviewData.balance >= 0 ? 'text-green-600' : 'text-red-600'
           }`}>
             R$ {overviewData.balance.toFixed(2)}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            Saldo Inicial: R$ {overviewData.initialBalance.toFixed(2)}
           </p>
         </div>
       </div>
