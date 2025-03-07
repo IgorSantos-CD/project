@@ -3,6 +3,7 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { transactionService } from '../services/transactionService';
 import { accountService } from '../services/accountService';
 import AccountSelector from './AccountSelector';
+import BalanceChart from './BalanceChart';
 import { toast } from 'react-hot-toast';
 
 interface AccountOverviewData {
@@ -84,63 +85,69 @@ const AccountOverview: React.FC = () => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">Visão Geral da Conta</h2>
-        <div className="w-64">
-          <AccountSelector
-            onSelect={setSelectedAccountId}
-            selectedAccountId={selectedAccountId}
-          />
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold">Visão Geral da Conta</h2>
+          <div className="w-64">
+            <AccountSelector
+              onSelect={setSelectedAccountId}
+              selectedAccountId={selectedAccountId}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-blue-500" />
+              <h3 className="text-sm font-medium text-gray-500">Total de Transações</h3>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 mt-2">
+              {overviewData.totalTransactions}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-500" />
+              <h3 className="text-sm font-medium text-gray-500">Total de Receitas</h3>
+            </div>
+            <p className="text-2xl font-bold text-green-600 mt-2">
+              R$ {overviewData.totalIncome.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5 text-red-500" />
+              <h3 className="text-sm font-medium text-gray-500">Total de Despesas</h3>
+            </div>
+            <p className="text-2xl font-bold text-red-600 mt-2">
+              R$ {overviewData.totalExpense.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-blue-500" />
+              <h3 className="text-sm font-medium text-gray-500">Saldo Total</h3>
+            </div>
+            <p className={`text-2xl font-bold mt-2 ${
+              overviewData.balance >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              R$ {overviewData.balance.toFixed(2)}
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Saldo Inicial: R$ {overviewData.initialBalance.toFixed(2)}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-blue-500" />
-            <h3 className="text-sm font-medium text-gray-500">Total de Transações</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900 mt-2">
-            {overviewData.totalTransactions}
-          </p>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-500" />
-            <h3 className="text-sm font-medium text-gray-500">Total de Receitas</h3>
-          </div>
-          <p className="text-2xl font-bold text-green-600 mt-2">
-            R$ {overviewData.totalIncome.toFixed(2)}
-          </p>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <TrendingDown className="h-5 w-5 text-red-500" />
-            <h3 className="text-sm font-medium text-gray-500">Total de Despesas</h3>
-          </div>
-          <p className="text-2xl font-bold text-red-600 mt-2">
-            R$ {overviewData.totalExpense.toFixed(2)}
-          </p>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-blue-500" />
-            <h3 className="text-sm font-medium text-gray-500">Saldo Total</h3>
-          </div>
-          <p className={`text-2xl font-bold mt-2 ${
-            overviewData.balance >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
-            R$ {overviewData.balance.toFixed(2)}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            Saldo Inicial: R$ {overviewData.initialBalance.toFixed(2)}
-          </p>
-        </div>
-      </div>
+      {selectedAccountId && (
+        <BalanceChart accountId={selectedAccountId} />
+      )}
     </div>
   );
 };
