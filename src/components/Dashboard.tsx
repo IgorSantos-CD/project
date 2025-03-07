@@ -17,6 +17,8 @@ import { transactionService } from '../services/transactionService';
 import { Calendar, Filter, TrendingUp, TrendingDown, DollarSign, Trash2, CheckSquare, XSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AccountSelector from './AccountSelector';
+import AccountOverview from './AccountOverview';
+import { accountService } from '../services/accountService';
 
 interface Transaction {
   id: string;
@@ -65,6 +67,21 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Carregar a primeira carteira automaticamente
+  useEffect(() => {
+    const loadDefaultAccount = async () => {
+      try {
+        const accounts = await accountService.getAccounts();
+        if (accounts.length > 0) {
+          setSelectedAccountId(accounts[0].id);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar carteira padrão:', error);
+      }
+    };
+    loadDefaultAccount();
+  }, []);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -202,6 +219,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Visão Geral da Conta */}
+      <AccountOverview />
+
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

@@ -20,6 +20,11 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({ onSelect, selectedAcc
       setIsLoading(true);
       const data = await accountService.getAccounts();
       setAccounts(data);
+      
+      // Se não houver carteira selecionada e houver carteiras disponíveis, seleciona a primeira
+      if (!selectedAccountId && data.length > 0) {
+        onSelect(data[0].id);
+      }
     } catch (error) {
       console.error('Erro ao carregar contas:', error);
     } finally {
