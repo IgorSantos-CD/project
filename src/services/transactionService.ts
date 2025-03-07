@@ -98,20 +98,6 @@ export const transactionService = {
     try {
       console.log('Iniciando criação de transação:', { transaction, recurring });
 
-      if (recurring) {
-        console.log('Criando transação recorrente');
-        return this.createRecurringTransaction(transaction, {
-          ...recurring,
-          description: transaction.description,
-          amount: transaction.amount,
-          type: transaction.type,
-          category_id: transaction.category,
-          start_date: transaction.date,
-          user_id: '', // Será preenchido dentro do método
-          account_id: '' // Será preenchido dentro do método
-        });
-      }
-
       // Get the current user's ID
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
@@ -137,7 +123,21 @@ export const transactionService = {
         categoryId = await this.findOrCreateCategory(transaction.category, transaction.type);
       }
 
-      // Cria a transação
+      if (recurring) {
+        console.log('Criando transação recorrente');
+        return this.createRecurringTransaction(transaction, {
+          ...recurring,
+          description: transaction.description,
+          amount: transaction.amount,
+          type: transaction.type,
+          category_id: categoryId,
+          start_date: transaction.date,
+          user_id: user.id,
+          account_id: accountId
+        });
+      }
+
+      // Cria a transação normal
       const { data, error } = await supabase
         .from('transactions')
         .insert({
@@ -445,25 +445,9 @@ export const transactionService = {
       let lastGeneratedDate = startDate;
       let transactionCount = 0;
 
-      // Criar a primeira transação
-      const { error: firstTransactionError } = await supabase
-        .from('transactions')
-        .insert({
-          description: transaction.description,
-          amount: transaction.amount,
-          type: transaction.type,
-          category_id: categoryId,
-          date: format(startDate, 'yyyy-MM-dd'),
-          recurring_transaction_id: recurringData.id,
-          user_id: user.id,
-          account_id: accountId
-        });
-
-      if (firstTransactionError) throw firstTransactionError;
-      transactionCount++;
-
       // Gerar as próximas transações
       while (true) {
+        // Calcular a próxima data
         currentDate = getNextDate(currentDate);
 
         // Verificar se atingiu a data final
