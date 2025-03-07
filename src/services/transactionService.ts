@@ -96,7 +96,10 @@ export const transactionService = {
 
   async createTransaction(transaction: Transaction, recurring?: { frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'; interval: number; end_date?: string }) {
     try {
+      console.log('Iniciando criação de transação:', { transaction, recurring });
+
       if (recurring) {
+        console.log('Criando transação recorrente');
         return this.createRecurringTransaction(transaction, {
           ...recurring,
           description: transaction.description,
@@ -364,6 +367,8 @@ export const transactionService = {
 
   async createRecurringTransaction(transaction: Transaction, recurring: RecurringTransaction) {
     try {
+      console.log('Iniciando criação de transação recorrente:', { transaction, recurring });
+
       // Get the current user's ID
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
@@ -408,29 +413,102 @@ export const transactionService = {
         .single();
 
       if (recurringError) throw recurringError;
+      console.log('Transação recorrente criada:', recurringData);
+
+      // Gerar todas as transações
+      const startDate = parseISO(transaction.date);
+      const endDate = recurring.end_date ? parseISO(recurring.end_date) : null;
+
+      console.log('Datas de geração:', {
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : 'Sem data final'
+      });
+
+      // Função para calcular a próxima data baseada na frequência
+      const getNextDate = (currentDate: Date) => {
+        switch (recurring.frequency) {
+          case 'daily':
+            return addDays(currentDate, recurring.interval);
+          case 'weekly':
+            return addWeeks(currentDate, recurring.interval);
+          case 'monthly':
+            return addMonths(currentDate, recurring.interval);
+          case 'yearly':
+            return addYears(currentDate, recurring.interval);
+          default:
+            return addMonths(currentDate, recurring.interval);
+        }
+      };
+
+      // Criar todas as transações
+      let currentDate = startDate;
+      let lastGeneratedDate = startDate;
+      let transactionCount = 0;
 
       // Criar a primeira transação
-      const { data: transactionData, error: transactionError } = await supabase
+      const { error: firstTransactionError } = await supabase
         .from('transactions')
         .insert({
           description: transaction.description,
           amount: transaction.amount,
           type: transaction.type,
           category_id: categoryId,
-          date: transaction.date,
+          date: format(startDate, 'yyyy-MM-dd'),
           recurring_transaction_id: recurringData.id,
           user_id: user.id,
           account_id: accountId
-        })
-        .select()
-        .single();
+        });
 
-      if (transactionError) throw transactionError;
+      if (firstTransactionError) throw firstTransactionError;
+      transactionCount++;
 
       // Gerar as próximas transações
-      await this.generateTransactionsForRecurring(recurringData);
+      while (true) {
+        currentDate = getNextDate(currentDate);
 
-      return { recurring: recurringData, transaction: transactionData };
+        // Verificar se atingiu a data final
+        if (endDate && isBefore(endDate, currentDate)) {
+          break;
+        }
+
+        // Criar a transação
+        const { error: createError } = await supabase
+          .from('transactions')
+          .insert({
+            description: transaction.description,
+            amount: transaction.amount,
+            type: transaction.type,
+            category_id: categoryId,
+            date: format(currentDate, 'yyyy-MM-dd'),
+            recurring_transaction_id: recurringData.id,
+            user_id: user.id,
+            account_id: accountId
+          });
+
+        if (createError) throw createError;
+        transactionCount++;
+        lastGeneratedDate = currentDate;
+      }
+
+      // Atualizar a última data gerada
+      const { error: updateError } = await supabase
+        .from('recurring_transactions')
+        .update({ last_generated_date: format(lastGeneratedDate, 'yyyy-MM-dd') })
+        .eq('id', recurringData.id);
+
+      if (updateError) throw updateError;
+
+      console.log('Transação recorrente criada com sucesso:', {
+        recurringId: recurringData.id,
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        lastGeneratedDate: format(lastGeneratedDate, 'yyyy-MM-dd'),
+        frequency: recurring.frequency,
+        interval: recurring.interval,
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : 'Sem data final',
+        totalTransactions: transactionCount
+      });
+
+      return { recurring: recurringData };
     } catch (error) {
       console.error('Erro ao criar transação recorrente:', error);
       throw error;

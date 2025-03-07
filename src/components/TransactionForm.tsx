@@ -25,11 +25,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
     type: 'expense',
     category: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    recurrence: {
-      frequency: 'monthly',
-      interval: '1',
-      endDate: ''
-    }
+    frequency: 'monthly',
+    interval: 1,
+    end_date: ''
   });
 
   useEffect(() => {
@@ -49,20 +47,35 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data = {
-      ...formData,
-      category: isNewCategory ? newCategory : formData.category,
-      amount: Number(formData.amount),
-      isRecurring,
-      recurrence: isRecurring ? {
-        frequency: formData.recurrence.frequency,
-        interval: Number(formData.recurrence.interval),
-        endDate: formData.recurrence.endDate || undefined
-      } : undefined
-    };
-    onSubmit(data as Transaction);
+    try {
+      console.log('Submetendo formulário:', { formData, isRecurring });
+
+      const transaction = {
+        description: formData.description,
+        amount: Number(formData.amount),
+        type: formData.type as 'income' | 'expense',
+        category: isNewCategory ? newCategory : formData.category,
+        date: formData.date
+      };
+
+      if (isRecurring) {
+        // Se for recorrente, passa os parâmetros de recorrência
+        await transactionService.createTransaction(transaction, {
+          frequency: formData.frequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
+          interval: Number(formData.interval),
+          end_date: formData.end_date || undefined
+        });
+      } else {
+        // Se não for recorrente, cria uma transação normal
+        await transactionService.createTransaction(transaction);
+      }
+
+      onSubmit(transaction as Transaction);
+    } catch (error) {
+      console.error('Erro ao criar transação:', error);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -239,8 +252,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
                 Frequência
               </label>
               <select
-                name="recurrence.frequency"
-                value={formData.recurrence.frequency}
+                name="frequency"
+                value={formData.frequency}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
@@ -257,8 +270,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
               </label>
               <input
                 type="number"
-                name="recurrence.interval"
-                value={formData.recurrence.interval}
+                name="interval"
+                value={formData.interval}
                 onChange={handleChange}
                 min="1"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -271,8 +284,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
               </label>
               <input
                 type="date"
-                name="recurrence.endDate"
-                value={formData.recurrence.endDate}
+                name="end_date"
+                value={formData.end_date}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
