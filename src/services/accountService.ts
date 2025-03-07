@@ -45,6 +45,19 @@ export const accountService = {
     return data;
   },
 
+  async updateAccount(id: string, updates: Partial<Account>): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { error } = await supabase
+      .from('accounts')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+  },
+
   async updateAccountBalance(accountId: string, newBalance: number): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
@@ -53,6 +66,19 @@ export const accountService = {
       .from('accounts')
       .update({ balance: newBalance })
       .eq('id', accountId)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+  },
+
+  async deleteAccount(id: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { error } = await supabase
+      .from('accounts')
+      .delete()
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (error) throw error;

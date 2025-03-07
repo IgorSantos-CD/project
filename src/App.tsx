@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import TransactionForm from './components/TransactionForm';
+import AccountManager from './components/AccountManager';
 import { AuthForm } from './components/AuthForm';
 import { transactionService, Transaction } from './services/transactionService';
 
@@ -47,6 +48,14 @@ function AppContent() {
             element={
               <PrivateRoute>
                 <TransactionForm onSubmit={handleTransactionSubmit} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/accounts"
+            element={
+              <PrivateRoute>
+                <AccountManager />
               </PrivateRoute>
             }
           />
