@@ -135,11 +135,11 @@ export const transactionService = {
         console.log('Criando transação recorrente');
         return this.createRecurringTransaction(transaction, {
           ...recurring,
-          description: transaction.description,
-          amount: transaction.amount,
-          type: transaction.type,
-          category_id: categoryId,
-          start_date: transaction.date,
+            description: transaction.description,
+            amount: transaction.amount,
+            type: transaction.type,
+            category_id: categoryId,
+            start_date: transaction.date,
           user_id: user.id,
           account_id: accountId
         });
@@ -206,17 +206,29 @@ export const transactionService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
-    const { data, error } = await supabase
-      .from('recurring_transactions')
-      .select(`
-        *,
+      const { data, error } = await supabase
+        .from('recurring_transactions')
+        .select(`
+          *,
         category:categories(*)
       `)
       .eq('user_id', user.id)
+      // Ordenar por descrição e data de criação (decrescente)
+      .order('description', { ascending: true })
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+
+    // Filtrar para manter apenas a entrada mais recente de cada descrição
+    const uniqueTransactions = data.reduce((acc: RecurringTransaction[], current) => {
+      const exists = acc.find(t => t.description === current.description);
+      if (!exists) {
+        acc.push(current);
+      }
+      return acc;
+    }, []);
+
+    return uniqueTransactions;
   },
 
   async deleteTransaction(id: string) {
