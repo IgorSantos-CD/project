@@ -9,6 +9,7 @@ import TransactionForm from './components/TransactionForm';
 import AccountManager from './components/AccountManager';
 import { AuthForm } from './components/AuthForm';
 import { transactionService, Transaction } from './services/transactionService';
+import RecurringTransactions from './components/RecurringTransactions';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -65,6 +66,14 @@ function AppContent() {
               element={
                 <PrivateRoute>
                   <AccountManager />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/recurring"
+              element={
+                <PrivateRoute>
+                  <RecurringTransactions />
                 </PrivateRoute>
               }
             />

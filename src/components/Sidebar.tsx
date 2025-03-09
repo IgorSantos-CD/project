@@ -6,7 +6,8 @@ import {
   Wallet, 
   ChevronLeft,
   ChevronRight,
-  LogOut 
+  LogOut,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSidebar } from '../contexts/SidebarContext';
@@ -92,6 +93,20 @@ const Sidebar: React.FC = () => {
             >
               <Wallet className="h-5 w-5" />
               {isExpanded && <span className="ml-3">Carteiras</span>}
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/recurring"
+              className={`
+                flex items-center p-3 rounded-lg transition-colors
+                ${isActive('/recurring')
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-600 hover:bg-gray-50'}
+              `}
+            >
+              <Clock className="h-5 w-5" />
+              {isExpanded && <span className="ml-3">Recorrentes</span>}
             </Link>
           </li>
         </ul>

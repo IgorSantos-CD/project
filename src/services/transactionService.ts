@@ -202,25 +202,21 @@ export const transactionService = {
     }
   },
 
-  async getRecurringTransactions() {
-    try {
-      const { data, error } = await supabase
-        .from('recurring_transactions')
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            type
-          )
-        `);
+  async getRecurringTransactions(): Promise<RecurringTransaction[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
 
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Erro ao buscar transações recorrentes:', error);
-      throw error;
-    }
+    const { data, error } = await supabase
+      .from('recurring_transactions')
+      .select(`
+        *,
+        category:categories(*)
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
   },
 
   async deleteTransaction(id: string) {
@@ -582,5 +578,21 @@ export const transactionService = {
       console.error('Erro ao criar transação recorrente:', error);
       throw error;
     }
+  },
+
+  async updateRecurringTransaction(
+    id: string,
+    updates: Partial<RecurringTransaction>
+  ): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { error } = await supabase
+      .from('recurring_transactions')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
   }
 };
